@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Saurav Popup Dictionary</title>
+  <style>
+    :root { --text:#f0f4ff; --text-muted:#b8c7e0; --danger:#fca5a5; }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: linear-gradient(160deg, #1a2a4a 0%, #2d1b4e 50%, #1e3a5f 100%);
+      min-height:100vh; color:var(--text); overflow-x:hidden;
+    }
+    body::before {
+      content:""; position:fixed; inset:0;
+      background: radial-gradient(circle at 20% 30%, rgba(126,182,255,0.18) 0%, transparent 45%),
+                  radial-gradient(circle at 80% 70%, rgba(167,139,250,0.15) 0%, transparent 45%);
+      pointer-events:none; z-index:0;
+    }
+    .status-bar {
+      display:flex; justify-content:space-between; align-items:center;
+      padding:10px 18px; font-size:13px; font-weight:500; position:relative; z-index:1;
+    }
+    .app-title {
+      text-align:center; font-family:Georgia,serif; font-style:italic;
+      font-size:26px; margin:18px 0 26px; color:#fff;
+      text-shadow:0 2px 12px rgba(0,0,0,0.35); position:relative; z-index:1;
+    }
+    .howto-card {
+      position:relative; z-index:1; margin:0 18px; padding:26px 22px;
+      border-radius:20px; background:rgba(255,255,255,0.08);
+      backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px);
+      border:1px solid rgba(255,255,255,0.18); box-shadow:0 8px 32px rgba(0,0,0,0.25); line-height:1.55;
+    }
+    .howto-card h2 { font-family:Georgia,serif; font-style:italic; font-size:19px; margin-bottom:18px; color:#fff; }
+    .howto-card ol { padding-left:20px; margin-bottom:16px; }
+    .howto-card li { margin-bottom:12px; font-size:14.5px; color:var(--text-muted); }
+    .howto-card .note {
+      font-family:Georgia,serif; font-style:italic; font-size:13.5px; color:#9db0d0;
+      border-top:1px solid rgba(255,255,255,0.12); padding-top:14px; margin-top:6px;
+    }
+    .demo-section { position:relative; z-index:1; margin:32px 18px 16px; text-align:center; }
+    .demo-section h3 { font-size:14px; font-weight:500; margin-bottom:14px; color:var(--text-muted); }
+    .input-row { display:flex; gap:10px; max-width:420px; margin:0 auto 16px; }
+    #wordInput {
+      flex:1; padding:14px 18px; border:1px solid rgba(255,255,255,0.2);
+      border-radius:14px; font-size:16px; background:rgba(255,255,255,0.12); color:#fff; outline:none;
+    }
+    #wordInput::placeholder { color:#9db0d0; }
+    #lookupBtn {
+      padding:0 22px; border:none; border-radius:14px;
+      background:linear-gradient(135deg,#5b9cff,#7c5cfc); color:#fff;
+      font-size:15px; font-weight:600; cursor:pointer;
+      box-shadow:0 4px 16px rgba(91,156,255,0.35);
+    }
+    #lookupBtn:disabled { background:#4a5568; box-shadow:none; cursor:not-allowed; }
+    .quick-words { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; max-width:420px; margin:0 auto; }
+    .quick-words button {
+      background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2);
+      color:#cde; font-size:13px; padding:7px 14px; border-radius:20px; cursor:pointer;
+    }
+    .footer-note {
+      position:relative; z-index:1; text-align:center;
+      margin:28px 20px 50px; font-size:12.5px; color:rgba(255,255,255,0.55); line-height:1.55;
+    }
+
+    /* Glass popup */
+    .popup-overlay {
+      position:fixed; inset:0; background:rgba(10,15,30,0.55);
+      backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px);
+      display:flex; align-items:center; justify-content:center;
+      z-index:1000; opacity:0; visibility:hidden;
+      transition:opacity .28s, visibility .28s; padding:18px;
+    }
+    .popup-overlay.visible { opacity:1; visibility:visible; }
+    .popup-card {
+      width:100%; max-width:390px; max-height:88vh; overflow-y:auto;
+      border-radius:22px; padding:22px 20px 26px;
+      background:linear-gradient(165deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.09) 40%, rgba(120,90,220,0.14) 100%);
+      backdrop-filter:blur(24px) saturate(1.5); -webkit-backdrop-filter:blur(24px) saturate(1.5);
+      border:1px solid rgba(255,255,255,0.30);
+      box-shadow:0 12px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.28);
+      color:var(--text); transform:scale(0.94) translateY(12px);
+      transition:transform .3s cubic-bezier(0.22,1,0.36,1);
+    }
+    .popup-overlay.visible .popup-card { transform:scale(1) translateY(0); }
+    .popup-card::-webkit-scrollbar { width:5px; }
+    .popup-card::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.25); border-radius:10px; }
+    .popup-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; }
+    .popup-word { font-size:28px; font-weight:700; color:#fff; text-shadow:0 1px 4px rgba(0,0,0,0.3); }
+    .popup-phonetic { font-size:15px; color:#a5d0ff; margin-top:3px; font-style:italic; }
+    .close-btn {
+      background:rgba(255,255,255,0.14); border:1px solid rgba(255,255,255,0.22);
+      color:#fff; width:34px; height:34px; border-radius:50%; font-size:20px;
+      cursor:pointer; display:flex; align-items:center; justify-content:center;
+    }
+    .section { margin-top:18px; }
+    .section-title {
+      font-size:11px; text-transform:uppercase; letter-spacing:1.2px;
+      color:#9ec5ff; margin-bottom:7px; font-weight:600;
+    }
+    .section-content { font-size:15px; line-height:1.55; color:#e8eef8; }
+    .pos-tag {
+      display:inline-block; background:linear-gradient(135deg,#5b9cff,#7c5cfc);
+      color:#fff; font-size:10.5px; padding:3px 9px; border-radius:8px;
+      margin-right:6px; margin-bottom:6px; text-transform:uppercase; font-weight:600;
+    }
+    .definition-item {
+      margin-bottom:11px; padding:8px 12px; border-radius:10px;
+      background:rgba(255,255,255,0.07); border-left:3px solid #7eb6ff;
+    }
+    .definition-item em { display:block; margin-top:4px; color:#a8bdd8; font-size:13px; }
+    .syn-ant { display:flex; flex-wrap:wrap; gap:7px; margin-top:4px; }
+    .chip {
+      background:rgba(126,182,255,0.18); border:1px solid rgba(126,182,255,0.32);
+      color:#cde6ff; font-size:13px; padding:5px 11px; border-radius:20px;
+    }
+    .chip.antonym {
+      background:rgba(252,165,165,0.15); border-color:rgba(252,165,165,0.32); color:#ffc9c9;
+    }
+    .audio-btn {
+      display:inline-flex; align-items:center; gap:7px;
+      background:linear-gradient(135deg,#5b9cff,#4f8aef); color:#fff;
+      border:none; border-radius:10px; padding:8px 14px; font-size:13.5px;
+      font-weight:500; cursor:pointer; margin-top:10px;
+    }
+    .hindi-text { font-size:20px; color:#ffe8a3; font-weight:500; }
+    .loading { text-align:center; padding:48px 20px; color:var(--text-muted); }
+    .spinner {
+      width:38px; height:38px; border:3px solid rgba(255,255,255,0.15);
+      border-top-color:#7eb6ff; border-radius:50%;
+      animation:spin .75s linear infinite; margin:0 auto 16px;
+    }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .error { color:var(--danger); text-align:center; padding:30px 14px; font-size:15px; line-height:1.5; }
+    .error small { display:block; margin-top:10px; color:#9db0d0; font-size:13px; }
+    .cache-badge {
+      display:inline-block; font-size:10px; background:rgba(134,239,172,0.22);
+      color:#86efac; padding:2px 8px; border-radius:6px; margin-left:8px;
+    }
+    .tap-hint { text-align:center; margin-top:20px; font-size:12px; color:rgba(255,255,255,0.45); }
+  </style>
+</head>
+<body>
+
+  <div class="status-bar">
+    <span id="clock">13:47</span>
+    <div style="display:flex;gap:8px;align-items:center;font-size:12px;">
+      <span>Vo LTE</span><span>5G</span><span>■</span><span>84</span>
+    </div>
+  </div>
+
+  <h1 class="app-title">Saurav Popup Dictionary</h1>
+
+  <div class="howto-card">
+    <h2>How to use Saurav Popup Dictionary</h2>
+    <ol>
+      <li>Open any app (browser, WhatsApp, PDF, notes etc).</li>
+      <li>Long-press any word to select it.</li>
+      <li>In the selection menu that pops up, tap “Saurav Popup Dictionary”.</li>
+      <li>A small popup window will show the meaning, Hindi meaning, pronunciation, part of speech, synonyms and antonyms.</li>
+      <li>Tap anywhere outside the popup to close it.</li>
+    </ol>
+    <p class="note">
+      This app has no separate search screen on purpose — it works everywhere automatically, exactly where you select the word.
+    </p>
+  </div>
+
+  <div class="demo-section">
+    <h3>Try it here (type a word &amp; press Lookup)</h3>
+    <div class="input-row">
+      <input type="text" id="wordInput" placeholder="e.g. hello, courage, speech..." autocomplete="off" />
+      <button id="lookupBtn">Lookup</button>
+    </div>
+    <div class="quick-words" id="quickWords"></div>
+  </div>
+
+  <p class="footer-note">
+    Using a reliable free dictionary API · Results are cached for offline use.<br>
+    A real Android app is still required for the option to appear in the system selection menu.
+  </p>
+
+  <div class="popup-overlay" id="popupOverlay">
+    <div class="popup-card" id="popupCard"></div>
+  </div>
+
+  <script>
+    // ========== Built-in fallback (always works) ==========
+    const BUILTIN = {
+      hello: {
+        word:"hello", phonetic:"/həˈləʊ/",
+        meanings:[
+          {partOfSpeech:"noun", definitions:[{definition:"\"Hello!\" or an equivalent greeting."}]},
+          {partOfSpeech:"verb", definitions:[{definition:"To greet with \"hello\"."}]},
+          {partOfSpeech:"interjection", definitions:[
+            {definition:"A greeting said when meeting someone.", example:"Hello, everyone."},
+            {definition:"A greeting used when answering the telephone.", example:"Hello? How may I help you?"}
+          ]}
+        ]
+      },
+      speech: {
+        word:"speech", phonetic:"/spiːtʃ/",
+        meanings:[{partOfSpeech:"noun", definitions:[
+          {definition:"The expression of thoughts and feelings by articulate sounds."},
+          {definition:"A formal address delivered to an audience."}
+        ]}]
+      },
+      pronunciation: {
+        word:"pronunciation", phonetic:"/prəˌnʌnsiˈeɪʃn/",
+        meanings:[{partOfSpeech:"noun", definitions:[{definition:"The way in which a word is pronounced."}]}]
+      },
+      beautiful: {
+        word:"beautiful", phonetic:"/ˈbjuːtɪfl/",
+        meanings:[{partOfSpeech:"adjective", definitions:[
+          {definition:"Pleasing the senses or mind aesthetically."},
+          {definition:"Of a very high standard; excellent."}
+        ]}]
+      },
+      courage: {
+        word:"courage", phonetic:"/ˈkʌrɪdʒ/",
+        meanings:[{partOfSpeech:"noun", definitions:[
+          {definition:"The ability to do something that frightens one; bravery."}
+        ]}]
+      },
+      knowledge: {
+        word:"knowledge", phonetic:"/ˈnɒlɪdʒ/",
+        meanings:[{partOfSpeech:"noun", definitions:[
+          {definition:"Facts, information and skills acquired through experience or education."}
+        ]}]
+      },
+      success: {
+        word:"success", phonetic:"/səkˈses/",
+        meanings:[{partOfSpeech:"noun", definitions:[
+          {definition:"The accomplishment of an aim or purpose."}
+        ]}]
+      },
+      dictionary: {
+        word:"dictionary", phonetic:"/ˈdɪkʃənri/",
+        meanings:[{partOfSpeech:"noun", definitions:[
+          {definition:"A book or electronic resource that lists the words of a language and gives their meaning."}
+        ]}]
+      }
+    };
+    const HINDI_BUILTIN = {
+      hello:"नमस्ते", speech:"भाषण / वाणी", pronunciation:"उच्चारण",
+      beautiful:"सुंदर", courage:"साहस", knowledge:"ज्ञान",
+      success:"सफलता", dictionary:"शब्दकोश"
+    };
+
+    // ---------- Clock ----------
+    function updateClock() {
+      const n = new Date();
+      document.getElementById('clock').textContent =
+        n.getHours().toString().padStart(2,'0') + ':' + n.getMinutes().toString().padStart(2,'0');
+    }
+    updateClock(); setInterval(updateClock, 30000);
+
+    const overlay = document.getElementById('popupOverlay');
+    const card    = document.getElementById('popupCard');
+    const input   = document.getElementById('wordInput');
+    const btn     = document.getElementById('lookupBtn');
+
+    // Quick buttons
+    const qw = document.getElementById('quickWords');
+    Object.keys(BUILTIN).forEach(w => {
+      const b = document.createElement('button');
+      b.textContent = w;
+      b.onclick = () => { input.value = w; lookupWord(w); };
+      qw.appendChild(b);
+    });
+
+    overlay.addEventListener('click', e => { if (e.target === overlay) closePopup(); });
+    function closePopup() { overlay.classList.remove('visible'); }
+    function showLoading() {
+      card.innerHTML = `<div class="loading"><div class="spinner"></div>Looking up…</div>`;
+      overlay.classList.add('visible');
+    }
+    function showError(msg, detail='') {
+      card.innerHTML = `
+        <div class="popup-header"><div></div>
+          <button class="close-btn" onclick="closePopup()">×</button></div>
+        <div class="error">${msg}${detail?`<small>${detail}</small>`:''}</div>`;
+    }
+
+    // ---------- Cache ----------
+    const CACHE_KEY = 'saurav_dict_v4';
+    function getCache() {
+      try { return JSON.parse(localStorage.getItem(CACHE_KEY)||'{}'); } catch { return {}; }
+    }
+    function setCache(word, data) {
+      const c = getCache();
+      c[word] = {...data, ts:Date.now()};
+      const keys = Object.keys(c);
+      if (keys.length > 120) {
+        keys.sort((a,b)=>c[a].ts-c[b].ts).slice(0,keys.length-120).forEach(k=>delete c[k]);
+      }
+      localStorage.setItem(CACHE_KEY, JSON.stringify(c));
+    }
+
+    async function fetchWithTimeout(url, ms=10000) {
+      const ctrl = new AbortController();
+      const id = setTimeout(()=>ctrl.abort(), ms);
+      try {
+        const res = await fetch(url, {signal:ctrl.signal});
+        clearTimeout(id);
+        return res;
+      } catch(e) { clearTimeout(id); throw e; }
+    }
+
+    // ---------- Normalize different API formats into one shape ----------
+    function normalizeFromFreedictionaryAPI(data) {
+      // https://freedictionaryapi.com response
+      const word = data.word || '';
+      let phonetic = '';
+      const meanings = [];
+      const allSyn = new Set(), allAnt = new Set();
+
+      (data.entries || []).forEach(entry => {
+        if (!phonetic && entry.pronunciations?.length) {
+          const ipa = entry.pronunciations.find(p => p.type === 'ipa' || p.text);
+          if (ipa) phonetic = ipa.text;
+        }
+        const defs = (entry.senses || []).map(s => ({
+          definition: s.definition || s.glosses?.[0] || '',
+          example: s.examples?.[0] || '',
+          synonyms: s.synonyms || [],
+          antonyms: s.antonyms || []
+        })).filter(d => d.definition);
+
+        if (defs.length) {
+          meanings.push({
+            partOfSpeech: entry.partOfSpeech || 'unknown',
+            definitions: defs
+          });
+        }
+        (entry.synonyms || []).forEach(s => allSyn.add(s));
+        (entry.antonyms || []).forEach(a => allAnt.add(a));
+        defs.forEach(d => {
+          (d.synonyms||[]).forEach(s=>allSyn.add(s));
+          (d.antonyms||[]).forEach(a=>allAnt.add(a));
+        });
+      });
+
+      // attach collected syn/ant to first meaning for easier rendering
+      if (meanings.length && (allSyn.size || allAnt.size)) {
+        meanings[0]._extraSyn = [...allSyn];
+        meanings[0]._extraAnt = [...allAnt];
+      }
+
+      return { word, phonetic, meanings, phonetics: phonetic ? [{text:phonetic}] : [] };
+    }
+
+    function normalizeFromSuvankar(data) {
+      // api.suvankar.cc response
+      const word = data.word || '';
+      const phonetic = data.ipa || '';
+      const meanings = (data.meanings || []).map(m => ({
+        partOfSpeech: m.partOfSpeech || 'unknown',
+        definitions: (m.senses || []).map(s => ({
+          definition: (s.glosses && s.glosses[0]) || '',
+          example: (s.examples && s.examples[0]) || '',
+          synonyms: s.synonyms || [],
+          antonyms: s.antonyms || []
+        })).filter(d => d.definition)
+      })).filter(m => m.definitions.length);
+      return { word, phonetic, meanings, phonetics: phonetic ? [{text:phonetic, audio: data.audioUrl}] : [] };
+    }
+
+    // ---------- Main lookup ----------
+    async function lookupWord(raw) {
+      const word = (raw||'').trim().toLowerCase().replace(/[^a-z\-']/gi,'');
+      if (!word) return;
+
+      btn.disabled = true;
+      showLoading();
+
+      // 1. Built-in
+      if (BUILTIN[word]) {
+        renderResult(BUILTIN[word], HINDI_BUILTIN[word]||'—', true);
+        btn.disabled = false;
+        return;
+      }
+
+      // 2. Cache
+      const cache = getCache();
+      if (cache[word]?.entry) {
+        renderResult(cache[word].entry, cache[word].hindi||'—', true);
+        btn.disabled = false;
+        return;
+      }
+
+      let entry = null;
+      let hindi = '—';
+      let lastErr = null;
+
+      // 3. Primary: freedictionaryapi.com (currently reliable & fast)
+      try {
+        const res = await fetchWithTimeout(
+          `https://freedictionaryapi.com/api/v1/entries/en/${encodeURIComponent(word)}`,
+          9000
+        );
+        if (res.ok) {
+          const data = await res.json();
+          if (data.entries && data.entries.length) {
+            entry = normalizeFromFreedictionaryAPI(data);
+          }
+        } else if (res.status === 404) {
+          lastErr = new Error(`No definition found for “${word}”`);
+        }
+      } catch (e) {
+        lastErr = e;
+      }
+
+      // 4. Fallback: api.suvankar.cc
+      if (!entry) {
+        try {
+          const res2 = await fetchWithTimeout(
+            `https://api.suvankar.cc/dictionaryapi/v1/definitions/en/${encodeURIComponent(word)}`,
+            8000
+          );
+          if (res2.ok) {
+            const data2 = await res2.json();
+            if (data2.meanings && data2.meanings.length) {
+              entry = normalizeFromSuvankar(data2);
+            }
+          }
+        } catch (e) {
+          if (!lastErr) lastErr = e;
+        }
+      }
+
+      // 5. Hindi (best effort)
+      try {
+        const hiRes = await fetchWithTimeout(
+          `https://api.mymemory.translated.net/get?q=${encodeURIComponent(word)}&langpair=en|hi`,
+          6000
+        );
+        if (hiRes.ok) {
+          const hiData = await hiRes.json();
+          const t = hiData?.responseData?.translatedText;
+          if (t && !t.includes('MYMEMORY WARNING') && !t.includes('QUERY LENGTH')) hindi = t;
+        }
+      } catch(_) {}
+
+      if (entry) {
+        setCache(word, {entry, hindi});
+        renderResult(entry, hindi, false);
+      } else {
+        const msg = lastErr?.name === 'AbortError'
+          ? 'Request timed out'
+          : (lastErr?.message || 'Unable to fetch definition');
+        showError(msg, 'Try one of the quick buttons above (they always work) or try again in a few seconds.');
+      }
+      btn.disabled = false;
+    }
+
+    function renderResult(entry, hindi, fromCache) {
+      const word = entry.word;
+      const phonetic = entry.phonetic || (entry.phonetics?.find(p=>p.text)?.text) || '';
+      let audioUrl = '';
+      if (entry.phonetics) {
+        const a = entry.phonetics.find(p => p.audio);
+        if (a) audioUrl = a.audio.startsWith('//') ? 'https:'+a.audio : a.audio;
+      }
+
+      let meaningsHtml = '';
+      const allSyn = new Set(), allAnt = new Set();
+
+      (entry.meanings||[]).forEach(m => {
+        meaningsHtml += `<div class="section"><span class="pos-tag">${m.partOfSpeech}</span><div class="section-content">`;
+        (m.definitions||[]).slice(0,4).forEach((d,i) => {
+          meaningsHtml += `<div class="definition-item">${i+1}. ${d.definition}${d.example?`<em>“${d.example}”</em>`:''}</div>`;
+        });
+        meaningsHtml += `</div></div>`;
+        (m.synonyms||[]).forEach(s=>allSyn.add(s));
+        (m.antonyms||[]).forEach(a=>allAnt.add(a));
+        (m.definitions||[]).forEach(d=>{
+          (d.synonyms||[]).forEach(s=>allSyn.add(s));
+          (d.antonyms||[]).forEach(a=>allAnt.add(a));
+        });
+        if (m._extraSyn) m._extraSyn.forEach(s=>allSyn.add(s));
+        if (m._extraAnt) m._extraAnt.forEach(a=>allAnt.add(a));
+      });
+
+      const synHtml = allSyn.size
+        ? [...allSyn].slice(0,14).map(s=>`<span class="chip">${s}</span>`).join('')
+        : '<span style="color:#8aa0c0">—</span>';
+      const antHtml = allAnt.size
+        ? [...allAnt].slice(0,10).map(a=>`<span class="chip antonym">${a}</span>`).join('')
+        : '<span style="color:#8aa0c0">—</span>';
+
+      card.innerHTML = `
+        <div class="popup-header">
+          <div>
+            <div class="popup-word">${word}${fromCache?'<span class="cache-badge">offline</span>':''}</div>
+            ${phonetic?`<div class="popup-phonetic">${phonetic}</div>`:''}
+          </div>
+          <button class="close-btn" onclick="closePopup()">×</button>
+        </div>
+        ${audioUrl?`<button class="audio-btn" onclick="playAudio('${audioUrl}')">▶ Play pronunciation</button>`:''}
+        <div class="section">
+          <div class="section-title">Hindi Meaning</div>
+          <div class="hindi-text">${hindi}</div>
+        </div>
+        <div class="section">
+          <div class="section-title">English Meaning</div>
+          ${meaningsHtml || '<div class="section-content">No definitions available</div>'}
+        </div>
+        <div class="section">
+          <div class="section-title">Synonyms</div>
+          <div class="syn-ant">${synHtml}</div>
+        </div>
+        <div class="section">
+          <div class="section-title">Antonyms</div>
+          <div class="syn-ant">${antHtml}</div>
+        </div>
+        <p class="tap-hint">Tap outside to close</p>`;
+    }
+
+    function playAudio(url) {
+      new Audio(url).play().catch(()=>alert('Could not play audio'));
+    }
+
+    btn.addEventListener('click', () => lookupWord(input.value));
+    input.addEventListener('keydown', e => { if (e.key==='Enter') lookupWord(input.value); });
+
+    input.value = 'hello';
+  </script>
+</body>
+</html>
