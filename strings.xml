@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Saurav Popup Dictionary</string>
+
+    <!--
+        Text shown in the text-selection menu, next to Copy / Select all / Web search.
+        The floating toolbar has limited width and will hide long labels behind the
+        overflow (⋮) menu. "Saurav Dict" keeps it visible as a top-level item.
+    -->
+    <string name="process_text_label">Saurav Popup Dictionary</string>
+
+    <string name="looking_up">Looking up\u2026</string>
+    <string name="hindi_meaning">Hindi Meaning</string>
+    <string name="english_meaning">English Meaning</string>
+    <string name="synonyms">Synonyms</string>
+    <string name="antonyms">Antonyms</string>
+    <string name="play_pronunciation">\u25B6  Play pronunciation</string>
+    <string name="tap_outside">Tap outside to close</string>
+    <string name="offline">offline</string>
+    <string name="close">Close</string>
+</resources>
