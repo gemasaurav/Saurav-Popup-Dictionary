@@ -13,9 +13,14 @@ jobs:
 
       - name: Unzip project source (handles nested zips too)
         run: |
+          if [ ! -f files.zip ]; then
+            echo "ERROR: files.zip not found in repository root"
+            ls -la
+            exit 1
+          fi
           unzip -o files.zip -d extracted
           for i in 1 2 3 4 5; do
-            FOUND=$(find extracted -name "*.zip")
+            FOUND=$(find extracted -name "*.zip" 2>/dev/null || true)
             if [ -z "$FOUND" ]; then
               break
             fi
@@ -31,9 +36,10 @@ jobs:
       - name: Locate project folder
         id: locate
         run: |
-          SETTINGS_FILE=$(find extracted -name "settings.gradle" -o -name "settings.gradle.kts" | head -n 1)
+          # Correct find with parentheses for -o
+          SETTINGS_FILE=$(find extracted \( -name "settings.gradle" -o -name "settings.gradle.kts" \) | head -n 1)
           if [ -z "$SETTINGS_FILE" ]; then
-            echo "Could not find settings.gradle anywhere inside the zip!"
+            echo "Could not find settings.gradle or settings.gradle.kts anywhere inside the zip!"
             find extracted
             exit 1
           fi
@@ -49,6 +55,9 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # Avoid the deprecated/removed "tools" package
+          packages: 'platform-tools'
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -57,10 +66,19 @@ jobs:
 
       - name: Build debug APK
         working-directory: ${{ steps.locate.outputs.project_dir }}
-        run: gradle assembleDebug
+        run: |
+          if [ -f "./gradlew" ]; then
+            echo "Using project gradlew"
+            chmod +x ./gradlew
+            ./gradlew assembleDebug --no-daemon
+          else
+            echo "No gradlew found – using system gradle"
+            gradle assembleDebug --no-daemon
+          fi
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: saurav-popup-dictionary-apk
           path: ${{ steps.locate.outputs.project_dir }}/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
